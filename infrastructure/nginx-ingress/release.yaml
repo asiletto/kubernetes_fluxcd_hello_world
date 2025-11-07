@@ -34,11 +34,6 @@ spec:
         type: LoadBalancer
         externalIPs:
           - 192.168.1.100  # Static external IP
-        ports:
-          http:
-            port: 80
-          https:
-            port: 443
 
       # Security settings (matching original deployment)
       allowSnippetAnnotations: false
