@@ -1,0 +1,13 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  # First create namespaces
+  - namespaces/
+
+  # Then add Helm repositories
+  - sources/
+
+  # Deploy infrastructure components
+  - nginx-ingress/
+  - cert-manager/

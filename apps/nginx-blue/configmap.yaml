@@ -1,0 +1,45 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: html-blue
+  namespace: nginx-blue
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>HELLOWORLD2</title>
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                background-color: #2563eb;
+                font-family: Arial, sans-serif;
+            }
+            .container {
+                text-align: center;
+                color: white;
+            }
+            h1 {
+                font-size: 4rem;
+                margin-bottom: 1rem;
+            }
+            p {
+                font-size: 1.5rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Blue Background</h1>
+            <p>test-nginx-another.300510300.xyz</p>
+        </div>
+    </body>
+    </html>
