@@ -1,36 +1,39 @@
-# FluxCD GitOps Deployment for K3s
+# FluxCD GitOps Deployment per K3s
 
-This repository contains a production-ready GitOps setup using FluxCD for deploying applications on K3s, with clear separation between infrastructure and application components.
+Questo repository contiene una configurazione GitOps pronta per la produzione utilizzando FluxCD per il deployment di applicazioni su K3s, con una chiara separazione tra componenti infrastrutturali e applicativi.
 
-## Architecture Overview
+## Panoramica dell'Architettura
 
-### Repository Structure
+### Struttura del Repository
 
 ```
 .
 ├── clusters/
-│   └── k3s-local/                    # Cluster-specific configuration
-│       ├── flux-system/              # FluxCD bootstrap (auto-generated)
-│       ├── infrastructure.yaml       # Infrastructure Kustomization
-│       └── applications.yaml         # Applications Kustomization (depends on infra)
+│   └── k3s-local/                      # Configurazione specifica del cluster
+│       ├── flux-system/                # Bootstrap FluxCD (auto-generato)
+│       ├── infrastructure.yaml         # Kustomization Infrastruttura
+│       ├── infrastructure-config.yaml  # Kustomization Configurazione Infrastruttura
+│       └── applications.yaml           # Kustomization Applicazioni (dipende da infra)
 │
-├── infrastructure/                   # Infrastructure components
+├── infrastructure/                     # Componenti infrastrutturali
 │   ├── sources/
-│   │   ├── helm-repos.yaml          # Helm repository sources
+│   │   ├── helm-repos.yaml            # Sorgenti repository Helm
 │   │   └── kustomization.yaml
 │   ├── namespaces/
-│   │   ├── namespaces.yaml          # All namespaces
+│   │   ├── namespaces.yaml            # Tutti i namespace
 │   │   └── kustomization.yaml
 │   ├── nginx-ingress/
-│   │   ├── release.yaml             # NGINX Ingress HelmRelease
+│   │   ├── release.yaml               # HelmRelease NGINX Ingress
 │   │   └── kustomization.yaml
 │   ├── cert-manager/
-│   │   ├── release.yaml             # cert-manager HelmRelease
-│   │   ├── issuers.yaml             # Let's Encrypt ClusterIssuers
+│   │   ├── release.yaml               # HelmRelease cert-manager
 │   │   └── kustomization.yaml
-│   └── kustomization.yaml           # Main infrastructure kustomization
+│   ├── cert-manager-config/
+│   │   ├── issuers.yaml               # ClusterIssuer Let's Encrypt
+│   │   └── kustomization.yaml
+│   └── kustomization.yaml             # Kustomization principale infrastruttura
 │
-├── apps/                            # Application components
+├── apps/                              # Componenti applicativi
 │   ├── nginx-red/
 │   │   ├── deployment.yaml
 │   │   ├── service.yaml
@@ -45,445 +48,451 @@ This repository contains a production-ready GitOps setup using FluxCD for deploy
 │   │   └── kustomization.yaml
 │   └── kustomization.yaml
 │
-├── reset-k3s.sh                     # Clean and reinstall k3s
-├── bootstrap-flux.sh                # Bootstrap FluxCD
-├── create-secrets.sh                # Create required secrets
-├── verify-deployment.sh             # Verify deployment status
-└── README-FLUXCD.md                 # This file
+├── reset-k3s.sh                       # Pulizia e reinstallazione k3s
+├── bootstrap-flux.sh                  # Bootstrap FluxCD
+├── create-secrets.sh                  # Creazione secret richiesti
+├── verify-deployment.sh               # Verifica stato deployment
+└── README.md                          # Questo file
 ```
 
-### Component Separation
+### Separazione dei Componenti
 
-#### Infrastructure Components
-- **NGINX Ingress Controller**: Manages HTTP/HTTPS traffic routing
-- **cert-manager**: Automates TLS certificate provisioning via Let's Encrypt
-- **ClusterIssuers**: Let's Encrypt staging and production issuers
-- Deployed in dedicated namespaces: `ingress-nginx`, `cert-manager`
+#### Componenti Infrastrutturali
+- **NGINX Ingress Controller**: Gestisce il routing del traffico HTTP/HTTPS
+- **cert-manager**: Automatizza il provisioning di certificati TLS via Let's Encrypt
+- **ClusterIssuer**: Issuer Let's Encrypt staging e production
+- Deployati in namespace dedicati: `ingress-nginx`, `cert-manager`
 
-#### Application Components
-- **nginx-red**: Demo application with red background
-- **nginx-blue**: Demo application with blue background
-- Each application deployed in its own namespace
-- Each application has its own Ingress resource with TLS
+#### Componenti Applicativi
+- **nginx-red**: Applicazione demo con sfondo rosso
+- **nginx-blue**: Applicazione demo con sfondo blu
+- Ogni applicazione deployata nel proprio namespace
+- Ogni applicazione ha la propria risorsa Ingress con TLS
 
-## Prerequisites
+## Prerequisiti
 
-### Required Tools
-- **k3s**: Lightweight Kubernetes (or fresh install via `reset-k3s.sh`)
-- **flux CLI**: FluxCD command-line tool
+### Strumenti Richiesti
+- **k3s**: Kubernetes leggero (o installazione pulita via `reset-k3s.sh`)
+- **flux CLI**: Tool command-line FluxCD
   ```bash
   curl -s https://fluxcd.io/install.sh | sudo bash
   ```
-- **kubectl**: Kubernetes CLI (included with k3s)
-- **git**: Version control
+- **kubectl**: Kubernetes CLI (incluso con k3s)
+- **git**: Controllo versione
 
-### Required Accounts & Tokens
-1. **GitHub Account**: For repository hosting
+### Account e Token Richiesti
+1. **Account GitHub**: Per hosting del repository
 2. **GitHub Personal Access Token**:
-   - Create at: https://github.com/settings/tokens/new
-   - Required permissions: `repo` (full access)
-3. **Cloudflare Account**: For DNS management
+   - Crea su: https://github.com/settings/tokens/new
+   - Permessi richiesti: `repo` (accesso completo)
+3. **Account Cloudflare**: Per gestione DNS
 4. **Cloudflare API Token**:
-   - Create at: https://dash.cloudflare.com/profile/api-tokens
+   - Crea su: https://dash.cloudflare.com/profile/api-tokens
    - Template: "Edit zone DNS"
-   - Permissions:
+   - Permessi:
      - Zone / DNS / Edit
      - Zone / Zone / Read
    - Zone: `300510300.xyz`
 
-### DNS Configuration
-Ensure the following DNS records are configured in Cloudflare:
+### Configurazione DNS
+Assicurati che i seguenti record DNS siano configurati in Cloudflare:
 
 ```
 test-nginx.300510300.xyz         A    192.168.1.100
 test-nginx-another.300510300.xyz A    192.168.1.100
 ```
 
-## Quick Start Guide
+## Guida Rapida
 
-### Step 1: Reset K3s (Optional)
+### Step 1: Reset K3s (Opzionale)
 
-If you want to start with a clean cluster:
+Se vuoi iniziare con un cluster pulito:
 
 ```bash
 ./reset-k3s.sh
 ```
 
-This will:
-- Uninstall existing k3s
-- Clean up all residual files
-- Reinstall k3s with correct configuration
-- Verify cluster is ready
+Questo:
+- Disinstalla k3s esistente
+- Pulisce tutti i file residui
+- Reinstalla k3s con la configurazione corretta
+- Verifica che il cluster sia pronto
 
 ### Step 2: Bootstrap FluxCD
 
 ```bash
-export GITHUB_USER="your-github-username"
+export GITHUB_USER="tuo-username-github"
 export GITHUB_REPO="02_flux_github"
 export GITHUB_TOKEN="ghp_xxxxxxxxxxxxx"
 
 ./bootstrap-flux.sh
 ```
 
-This will:
-- Verify prerequisites
-- Run FluxCD pre-flight checks
-- Bootstrap FluxCD to the cluster
-- Configure GitRepository source
-- Deploy initial Kustomizations
+Questo:
+- Verifica i prerequisiti
+- Esegue controlli pre-flight FluxCD
+- Bootstrap di FluxCD nel cluster
+- Configura la sorgente GitRepository
+- Deploy delle Kustomization iniziali
 
-### Step 3: Create Secrets
+### Step 3: Creazione Secret
 
 ```bash
-export CLOUDFLARE_API_TOKEN="your-cloudflare-api-token"
+export CLOUDFLARE_API_TOKEN="tuo-cloudflare-api-token"
 
 ./create-secrets.sh
 ```
 
-This creates:
-- `cloudflare-api-token` secret in `cert-manager` namespace
+Questo crea:
+- Secret `cloudflare-api-token` nel namespace `cert-manager`
 
-**Important**: Secrets are NOT stored in Git and must be recreated after cluster resets.
+**Importante**: I secret NON sono memorizzati in Git e devono essere ricreati dopo i reset del cluster.
 
-### Step 4: Commit and Push
+### Step 4: Commit e Push
 
 ```bash
 git add .
-git commit -m "Initial FluxCD setup"
+git commit -m "Setup iniziale FluxCD"
 git push origin main
 ```
 
-FluxCD will automatically:
-1. Detect the push
-2. Reconcile infrastructure components
-3. Wait for infrastructure to be healthy
-4. Deploy application components
-5. Request TLS certificates from Let's Encrypt
+FluxCD automaticamente:
+1. Rileva il push
+2. Riconcilia i componenti infrastrutturali
+3. Attende che l'infrastruttura sia healthy
+4. Deploya i componenti applicativi
+5. Richiede certificati TLS da Let's Encrypt
 
-### Step 5: Verify Deployment
+### Step 5: Verifica Deployment
 
 ```bash
 ./verify-deployment.sh
 ```
 
-Or monitor in real-time:
+O monitora in tempo reale:
 
 ```bash
 flux get kustomizations --watch
 ```
 
-## Deployment Workflow
+## Flusso di Deployment
 
-### How GitOps Works
+### Come Funziona GitOps
 
 ```
-Developer                  GitHub                    FluxCD                   K8s Cluster
+Developer                  GitHub                    FluxCD                   Cluster K8s
     |                         |                         |                          |
     |-- git push ------------>|                         |                          |
     |                         |                         |                          |
-    |                         |<-- poll (every 1m) -----|                          |
+    |                         |<-- poll (ogni 1m) -----|                          |
     |                         |                         |                          |
-    |                         |--- changes detected --->|                          |
+    |                         |--- modifiche rilevate ->|                          |
     |                         |                         |                          |
-    |                         |                         |-- reconcile ------------>|
+    |                         |                         |-- riconciliazione ------>|
     |                         |                         |                          |
-    |                         |                         |<-- status --------------|
+    |                         |                         |<-- stato ---------------|
     |                         |                         |                          |
-    |                         |<-- commit status -------|                          |
+    |                         |<-- stato commit --------|                          |
 ```
 
-### Dependency Chain
+### Catena di Dipendenze
 
 ```
 Infrastructure Kustomization
-  ├── Namespaces (created first)
-  ├── Helm Repositories
+  ├── Namespace (creati per primi)
+  ├── Repository Helm
   ├── NGINX Ingress Controller (HelmRelease)
-  │   └── Wait for deployment to be ready
+  │   └── Attesa deployment pronto
   └── cert-manager (HelmRelease)
-      ├── Wait for deployment to be ready
-      └── ClusterIssuers (created after cert-manager is ready)
+      └── Attesa deployment pronto
 
-Applications Kustomization (depends on Infrastructure)
+Infrastructure-Config Kustomization (dipende da Infrastructure)
+  └── ClusterIssuer (creati dopo che cert-manager è pronto)
+
+Applications Kustomization (dipende da Infrastructure-Config)
   ├── nginx-red
   │   ├── ConfigMap
   │   ├── Deployment
   │   ├── Service
-  │   └── Ingress (triggers certificate request)
+  │   └── Ingress (innesca richiesta certificato)
   └── nginx-blue
       ├── ConfigMap
       ├── Deployment
       ├── Service
-      └── Ingress (triggers certificate request)
+      └── Ingress (innesca richiesta certificato)
 ```
 
-## Configuration Details
+## Dettagli Configurazione
 
-### Infrastructure Configuration
+### Configurazione Infrastruttura
 
 #### NGINX Ingress Controller
-- **Version**: 4.11.x (app version 1.11.1)
-- **Service Type**: LoadBalancer (k3s ServiceLB)
-- **External IP**: 192.168.1.100
-- **Ports**: 80 (HTTP), 443 (HTTPS)
-- **Security**: Snippet annotations disabled, non-root, read-only root filesystem
+- **Versione**: 4.11.x (app version 1.11.1)
+- **Tipo Service**: LoadBalancer (k3s ServiceLB)
+- **IP Esterno**: 192.168.1.100
+- **Porte**: 80 (HTTP), 443 (HTTPS)
+- **Sicurezza**: Annotazioni snippet disabilitate, non-root, filesystem root read-only
 
 #### cert-manager
-- **Version**: 1.13.x
-- **CRDs**: Installed and managed by Helm
-- **Challenge Type**: DNS-01 (via Cloudflare)
-- **Issuers**:
-  - `letsencrypt-staging`: For testing (untrusted certificates)
-  - `letsencrypt-prod`: For production (trusted certificates)
+- **Versione**: 1.13.x
+- **CRD**: Installate e gestite da Helm
+- **Tipo Challenge**: DNS-01 (via Cloudflare)
+- **Issuer**:
+  - `letsencrypt-staging`: Per test (certificati non fidati)
+  - `letsencrypt-prod`: Per produzione (certificati fidati)
 
-### Application Configuration
+### Configurazione Applicazioni
 
 #### nginx-red
 - **Namespace**: `nginx-red`
-- **Replicas**: 2
-- **Image**: `nginx:1.27-alpine`
+- **Repliche**: 2
+- **Immagine**: `nginx:1.27-alpine`
 - **Hostname**: `test-nginx.300510300.xyz`
-- **Background**: Red (#dc2626)
+- **Sfondo**: Rosso (#dc2626)
 
 #### nginx-blue
 - **Namespace**: `nginx-blue`
-- **Replicas**: 2
-- **Image**: `nginx:1.27-alpine`
+- **Repliche**: 2
+- **Immagine**: `nginx:1.27-alpine`
 - **Hostname**: `test-nginx-another.300510300.xyz`
-- **Background**: Blue (#2563eb)
+- **Sfondo**: Blu (#2563eb)
 
-## Managing the Deployment
+## Gestione del Deployment
 
-### Common Operations
+### Operazioni Comuni
 
-#### Force Reconciliation
+#### Forzare Riconciliazione
 
 ```bash
-# Reconcile everything
+# Riconcilia tutto
 flux reconcile kustomization flux-system --with-source
 
-# Reconcile infrastructure only
+# Riconcilia solo infrastruttura
 flux reconcile kustomization infrastructure --with-source
 
-# Reconcile applications only
+# Riconcilia solo configurazione infrastruttura
+flux reconcile kustomization infrastructure-config --with-source
+
+# Riconcilia solo applicazioni
 flux reconcile kustomization applications --with-source
 ```
 
-#### View Logs
+#### Visualizzare Log
 
 ```bash
-# All FluxCD logs
+# Tutti i log FluxCD
 flux logs --all-namespaces --follow
 
-# Specific component
+# Componente specifico
 kubectl logs -n flux-system deployment/source-controller -f
 ```
 
-#### Check Resource Status
+#### Controllare Stato Risorse
 
 ```bash
-# FluxCD resources
+# Risorse FluxCD
 flux get all
 
-# Helm releases
+# Release Helm
 kubectl get helmreleases -A
 
-# Certificates
+# Certificati
 kubectl get certificates -A
 kubectl describe certificate -n nginx-red nginx-red-tls-cert
 ```
 
-#### Suspend/Resume Reconciliation
+#### Sospendere/Riprendere Riconciliazione
 
 ```bash
-# Suspend (stop automatic updates)
+# Sospendi (ferma aggiornamenti automatici)
 flux suspend kustomization applications
 
-# Resume
+# Riprendi
 flux resume kustomization applications
 ```
 
-### Making Changes
+### Apportare Modifiche
 
-1. **Edit manifests** in your local repository
-2. **Commit changes**: `git commit -am "Description of changes"`
-3. **Push to GitHub**: `git push origin main`
-4. **Wait for reconciliation** (automatic, every 1m) or force:
+1. **Modifica manifest** nel repository locale
+2. **Commit modifiche**: `git commit -am "Descrizione modifiche"`
+3. **Push su GitHub**: `git push origin main`
+4. **Attendi riconciliazione** (automatica, ogni 1m) o forza:
    ```bash
    flux reconcile kustomization applications --with-source
    ```
 
-### Rolling Back Changes
+### Rollback Modifiche
 
 ```bash
-# Revert git commit
+# Revert commit git
 git revert HEAD
 git push origin main
 
-# Or force reconcile to a specific commit
+# Oppure forza riconciliazione a un commit specifico
 flux reconcile kustomization applications --with-source
 ```
 
 ## Troubleshooting
 
-### FluxCD Issues
+### Problemi FluxCD
 
 ```bash
-# Check FluxCD health
+# Controlla salute FluxCD
 flux check
 
-# View reconciliation status
+# Visualizza stato riconciliazione
 flux get kustomizations
 
-# View source status
+# Visualizza stato sorgenti
 flux get sources git
 
-# Check for errors
+# Controlla errori
 flux logs --level=error
 ```
 
-### Infrastructure Issues
+### Problemi Infrastruttura
 
 ```bash
-# Check Helm releases
+# Controlla release Helm
 flux get helmreleases -A
 
-# View HelmRelease details
+# Visualizza dettagli HelmRelease
 kubectl describe helmrelease ingress-nginx -n ingress-nginx
 
-# Check pod status
+# Controlla stato pod
 kubectl get pods -n ingress-nginx
 kubectl get pods -n cert-manager
 ```
 
-### Certificate Issues
+### Problemi Certificati
 
 ```bash
-# Check certificate status
+# Controlla stato certificati
 kubectl get certificates -A
 kubectl describe certificate nginx-red-tls-cert -n nginx-red
 
-# Check certificate requests
+# Controlla richieste certificati
 kubectl get certificaterequests -A
 
-# Check cert-manager logs
+# Controlla log cert-manager
 kubectl logs -n cert-manager deployment/cert-manager -f
 
-# Verify Cloudflare secret
+# Verifica secret Cloudflare
 kubectl get secret cloudflare-api-token -n cert-manager
 kubectl describe secret cloudflare-api-token -n cert-manager
 ```
 
-### Application Issues
+### Problemi Applicazioni
 
 ```bash
-# Check pod logs
+# Controlla log pod
 kubectl logs -n nginx-red deployment/nginx-red
 kubectl logs -n nginx-blue deployment/nginx-blue
 
-# Check ingress status
+# Controlla stato ingress
 kubectl get ingress -A
 kubectl describe ingress nginx-red-ingress -n nginx-red
 
-# Test connectivity
+# Test connettività
 curl -k -H 'Host: test-nginx.300510300.xyz' https://192.168.1.100
 ```
 
-### Common Problems
+### Problemi Comuni
 
-#### Certificates Not Ready
-- **Symptom**: Certificate status shows "False"
-- **Cause**: DNS-01 challenge failing
-- **Solutions**:
-  1. Verify Cloudflare API token is correct
-  2. Check DNS records are configured
-  3. View challenge details: `kubectl describe challenge -A`
-  4. Check cert-manager logs
+#### Certificati Non Pronti
+- **Sintomo**: Stato certificato mostra "False"
+- **Causa**: Challenge DNS-01 fallita
+- **Soluzioni**:
+  1. Verifica che il token API Cloudflare sia corretto
+  2. Controlla che i record DNS siano configurati
+  3. Visualizza dettagli challenge: `kubectl describe challenge -A`
+  4. Controlla log cert-manager
 
-#### HelmRelease Failed
-- **Symptom**: `flux get helmreleases` shows "False"
-- **Cause**: Helm chart installation/upgrade failed
-- **Solutions**:
-  1. Check HelmRelease events: `kubectl describe helmrelease <name> -n <namespace>`
-  2. Verify Helm repository is accessible: `flux get sources helm`
-  3. Check pod logs for the failed component
+#### HelmRelease Fallita
+- **Sintomo**: `flux get helmreleases` mostra "False"
+- **Causa**: Installazione/aggiornamento chart Helm fallito
+- **Soluzioni**:
+  1. Controlla eventi HelmRelease: `kubectl describe helmrelease <nome> -n <namespace>`
+  2. Verifica che il repository Helm sia accessibile: `flux get sources helm`
+  3. Controlla log pod del componente fallito
 
-#### Kustomization Not Reconciling
-- **Symptom**: Changes not applied
-- **Cause**: Source or dependency issues
-- **Solutions**:
-  1. Check GitRepository source: `flux get sources git`
-  2. Verify dependencies are healthy: `flux get kustomizations`
-  3. Force reconciliation: `flux reconcile kustomization <name> --with-source`
+#### Kustomization Non Riconcilia
+- **Sintomo**: Modifiche non applicate
+- **Causa**: Problemi sorgente o dipendenze
+- **Soluzioni**:
+  1. Controlla sorgente GitRepository: `flux get sources git`
+  2. Verifica che le dipendenze siano healthy: `flux get kustomizations`
+  3. Forza riconciliazione: `flux reconcile kustomization <nome> --with-source`
 
-## Testing
+## Test
 
-### Test HTTP → HTTPS Redirect
+### Test Redirect HTTP → HTTPS
 
 ```bash
 curl -I -H 'Host: test-nginx.300510300.xyz' http://192.168.1.100
-# Should return 308 Permanent Redirect to https://
+# Dovrebbe ritornare 308 Permanent Redirect a https://
 ```
 
-### Test HTTPS Endpoints
+### Test Endpoint HTTPS
 
 ```bash
-# Via LoadBalancer IP
+# Via IP LoadBalancer
 curl -H 'Host: test-nginx.300510300.xyz' https://192.168.1.100
 curl -H 'Host: test-nginx-another.300510300.xyz' https://192.168.1.100
 
-# Via DNS (if configured)
+# Via DNS (se configurato)
 curl https://test-nginx.300510300.xyz
 curl https://test-nginx-another.300510300.xyz
 ```
 
-### Verify Certificate
+### Verifica Certificato
 
 ```bash
 echo | openssl s_client -servername test-nginx.300510300.xyz -connect 192.168.1.100:443 2>/dev/null | openssl x509 -noout -text
 ```
 
-## Cleanup
+## Pulizia
 
-### Remove Applications Only
+### Rimuovi Solo Applicazioni
 
 ```bash
 flux delete kustomization applications --silent
 kubectl delete namespace nginx-red nginx-blue
 ```
 
-### Remove Infrastructure
+### Rimuovi Infrastruttura
 
 ```bash
+flux delete kustomization infrastructure-config --silent
 flux delete kustomization infrastructure --silent
 kubectl delete namespace ingress-nginx cert-manager
 ```
 
-### Full Cleanup (including FluxCD)
+### Pulizia Completa (incluso FluxCD)
 
 ```bash
 flux uninstall --silent
 ```
 
-### Complete Cluster Reset
+### Reset Completo Cluster
 
 ```bash
 ./reset-k3s.sh
 ```
 
-## Security Considerations
+## Considerazioni sulla Sicurezza
 
-### Secrets Management
+### Gestione Secret
 
-Current setup uses **manual secrets** (not stored in Git). For production, consider:
+Il setup attuale usa **secret manuali** (non memorizzati in Git). Per la produzione, considera:
 
-- **Sealed Secrets**: Encrypt secrets in Git
-- **SOPS**: Encrypt YAML files with age/GPG
-- **External Secrets Operator**: Sync from external secret stores (Vault, AWS Secrets Manager)
+- **Sealed Secrets**: Cripta secret in Git
+- **SOPS**: Cripta file YAML con age/GPG
+- **External Secrets Operator**: Sincronizza da archivi secret esterni (Vault, AWS Secrets Manager)
 
-### Network Policies
+### Network Policy
 
-Consider adding NetworkPolicies to restrict traffic between namespaces:
+Considera l'aggiunta di NetworkPolicy per restringere il traffico tra namespace:
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -503,18 +512,18 @@ spec:
           name: ingress-nginx
 ```
 
-### Image Security
+### Sicurezza Immagini
 
-Consider adding:
-- **Image scanning**: Scan images for vulnerabilities
-- **Image signing**: Verify image signatures
-- **Image policies**: Restrict which images can be deployed
+Considera l'aggiunta di:
+- **Scansione immagini**: Scansiona immagini per vulnerabilità
+- **Firma immagini**: Verifica firme immagini
+- **Policy immagini**: Limita quali immagini possono essere deployate
 
-## Future Enhancements
+## Miglioramenti Futuri
 
 ### Monitoring & Observability
 
-Add Prometheus and Grafana for monitoring:
+Aggiungi Prometheus e Grafana per monitoring:
 
 ```
 infrastructure/
@@ -524,9 +533,9 @@ infrastructure/
     └── kustomization.yaml
 ```
 
-### Multi-Environment
+### Multi-Ambiente
 
-Extend to multiple environments:
+Estendi a più ambienti:
 
 ```
 clusters/
@@ -535,9 +544,9 @@ clusters/
 └── k3s-prod/
 ```
 
-### Automated Image Updates
+### Aggiornamenti Immagini Automatici
 
-Enable Flux ImageRepository and ImagePolicy for automatic updates:
+Abilita ImageRepository e ImagePolicy di Flux per aggiornamenti automatici:
 
 ```yaml
 apiVersion: image.toolkit.fluxcd.io/v1beta1
@@ -560,22 +569,11 @@ spec:
       range: 1.27.x
 ```
 
-## References
+## Riferimenti
 
-- [FluxCD Documentation](https://fluxcd.io/docs/)
-- [K3s Documentation](https://docs.k3s.io/)
-- [cert-manager Documentation](https://cert-manager.io/docs/)
-- [NGINX Ingress Controller Documentation](https://kubernetes.github.io/ingress-nginx/)
-- [Kustomize Documentation](https://kustomize.io/)
+- [Documentazione FluxCD](https://fluxcd.io/docs/)
+- [Documentazione K3s](https://docs.k3s.io/)
+- [Documentazione cert-manager](https://cert-manager.io/docs/)
+- [Documentazione NGINX Ingress Controller](https://kubernetes.github.io/ingress-nginx/)
+- [Documentazione Kustomize](https://kustomize.io/)
 
-## Support
-
-For issues or questions:
-1. Check the Troubleshooting section above
-2. Review FluxCD logs: `flux logs --level=error`
-3. Run verification script: `./verify-deployment.sh`
-4. Check component documentation
-
-## License
-
-This setup is provided as-is for demonstration and educational purposes.
