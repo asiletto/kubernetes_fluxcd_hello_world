@@ -8,8 +8,8 @@ spec:
   interval: 1h
   # Original upstream URL:
   # url: https://kubernetes.github.io/ingress-nginx
-  # Local ChartMuseum URL (update localhost with your IP/hostname):
-  url: http://localhost:8080
+  # Local ChartMuseum URL:
+  url: http://192.168.1.100:8080
 ---
 apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: HelmRepository
@@ -20,5 +20,5 @@ spec:
   interval: 1h
   # Original upstream URL:
   # url: https://charts.jetstack.io
-  # Local ChartMuseum URL (update localhost with your IP/hostname):
-  url: http://localhost:8080
+  # Local ChartMuseum URL:
+  url: http://192.168.1.100:8080
