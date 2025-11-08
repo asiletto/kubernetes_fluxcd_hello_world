@@ -257,6 +257,191 @@ Applications Kustomization (dipende da Infrastructure-Config)
 - **Hostname**: `test-nginx-another.300510300.xyz`
 - **Sfondo**: Blu (#2563eb)
 
+## Repository Proxy Locale (Opzionale)
+
+Questo setup supporta l'utilizzo di repository proxy locali per ridurre l'utilizzo di banda esterna e migliorare le performance. I proxy sono gestiti tramite container Docker esterni al cluster K3s.
+
+### Panoramica
+
+Il sistema utilizza due servizi proxy:
+
+1. **Docker Registry** (porta 5000): Pull-through cache per immagini container
+   - Caches automaticamente immagini da Docker Hub, GHCR, registry.k8s.io, Quay.io
+   - Trasparente per le applicazioni (via K3s registry mirrors)
+   - Persistente su volume Docker
+
+2. **ChartMuseum** (porta 8080): Repository per Helm charts
+   - Richiede caricamento manuale dei charts
+   - FluxCD configurato per utilizzarlo al posto dei repository upstream
+   - API REST per gestione charts
+
+### Setup Rapido
+
+```bash
+# 1. Avvia i servizi proxy
+cd proxy-setup/
+docker compose up -d
+
+# 2. Verifica che i servizi siano attivi
+docker compose ps
+curl http://localhost:5000/v2/_catalog  # Docker Registry
+curl http://localhost:8080/health        # ChartMuseum
+
+# 3. Popola ChartMuseum con i charts necessari
+cd ..
+./proxy-setup/populate-chartmuseum.sh
+
+# 4. Configura K3s per usare il registry proxy
+# IMPORTANTE: Usa l'IP della tua macchina, non localhost!
+# Esempio: sudo REGISTRY_HOST=192.168.1.50 ./setup-registry-mirrors.sh
+sudo REGISTRY_HOST=<tuo-ip> ./setup-registry-mirrors.sh
+
+# 5. Aggiorna la configurazione FluxCD
+sed -i 's/CHARTMUSEUM_HOST/<tuo-ip>/g' infrastructure/sources/helm-repos.yaml
+
+# 6. Commit e push
+git add infrastructure/sources/helm-repos.yaml
+git commit -m "Configura repository proxy locale"
+git push origin main
+
+# 7. Verifica il setup
+REGISTRY_HOST=<tuo-ip> CHARTMUSEUM_HOST=<tuo-ip> ./verify-proxies.sh
+```
+
+### Struttura File Proxy
+
+```
+proxy-setup/
+├── docker-compose.yml           # Definizione servizi Docker Registry e ChartMuseum
+├── populate-chartmuseum.sh      # Script per caricare charts in ChartMuseum
+└── README (vedi CLAUDE.md)
+
+setup-registry-mirrors.sh        # Configura K3s per usare il registry proxy
+registries.yaml.template         # Template configurazione registry mirrors
+verify-proxies.sh                # Verifica che i proxy funzionino correttamente
+```
+
+### Configurazione K3s Registry Mirrors
+
+Il file `/etc/rancher/k3s/registries.yaml` configura K3s per usare il proxy:
+
+```yaml
+mirrors:
+  docker.io:
+    endpoint:
+      - "http://192.168.1.50:5000"
+  ghcr.io:
+    endpoint:
+      - "http://192.168.1.50:5000"
+  registry.k8s.io:
+    endpoint:
+      - "http://192.168.1.50:5000"
+  quay.io:
+    endpoint:
+      - "http://192.168.1.50:5000"
+```
+
+**Nota**: Sostituisci `192.168.1.50` con l'IP della tua macchina host.
+
+### Gestione ChartMuseum
+
+#### Aggiungere Nuove Versioni di Chart
+
+Quando aggiorni le versioni nei HelmRelease:
+
+```bash
+# Scarica il nuovo chart
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm pull ingress-nginx/ingress-nginx --version 4.12.0
+
+# Carica su ChartMuseum
+curl --data-binary "@ingress-nginx-4.12.0.tgz" http://localhost:8080/api/charts
+
+# Verifica caricamento
+curl http://localhost:8080/api/charts/ingress-nginx
+```
+
+#### Visualizzare Charts Disponibili
+
+```bash
+# Lista tutti i charts
+curl http://localhost:8080/api/charts | jq
+
+# Dettagli specifico chart
+curl http://localhost:8080/api/charts/ingress-nginx
+```
+
+### Verifica Funzionamento
+
+```bash
+# Controlla stato container
+docker compose ps
+
+# Testa pull attraverso il registry proxy
+sudo k3s crictl pull nginx:1.27-alpine
+docker logs docker-registry  # Verifica cache hit
+
+# Verifica FluxCD HelmRepository
+flux get sources helm -A
+
+# Test completo
+./verify-proxies.sh
+```
+
+### Manutenzione
+
+#### Svuotare Cache Registry
+
+```bash
+cd proxy-setup/
+docker compose down
+docker volume rm proxy-setup_registry-data
+docker compose up -d
+```
+
+#### Backup Charts ChartMuseum
+
+```bash
+# I charts sono nel volume Docker
+docker run --rm -v proxy-setup_chartmuseum-data:/data -v $(pwd):/backup alpine tar czf /backup/chartmuseum-backup.tar.gz /data
+```
+
+### Ripristino Repository Upstream
+
+Per tornare a utilizzare i repository upstream:
+
+1. **Helm Charts**: Decommenta gli URL originali in `infrastructure/sources/helm-repos.yaml`
+2. **Container Images**: Rimuovi `/etc/rancher/k3s/registries.yaml` e riavvia K3s
+3. Commit e push
+
+### Troubleshooting Proxy
+
+#### ChartMuseum non raggiungibile da FluxCD
+
+```bash
+# Verifica HelmRepository status
+flux get sources helm -A
+kubectl describe helmrepository ingress-nginx -n flux-system
+
+# Verifica che ChartMuseum sia accessibile dal cluster
+kubectl run test-curl --rm -it --image=curlimages/curl -- curl http://<chartmuseum-ip>:8080/health
+```
+
+#### Immagini non usano il proxy
+
+```bash
+# Verifica configurazione K3s
+sudo cat /etc/rancher/k3s/registries.yaml
+
+# Controlla logs K3s
+sudo journalctl -u k3s -f | grep registry
+
+# Testa connettività dal nodo
+curl http://<registry-ip>:5000/v2/_catalog
+```
+
+Per troubleshooting dettagliato e configurazione avanzata, consulta `CLAUDE.md` sezione "Local Repository Proxies".
+
 ## Gestione del Deployment
 
 ### Operazioni Comuni
