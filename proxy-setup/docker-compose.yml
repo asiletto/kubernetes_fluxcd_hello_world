@@ -1,0 +1,97 @@
+services:
+  # Docker Registry as Pull-Through Cache
+  docker-registry:
+    image: registry:2
+    container_name: docker-registry
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      # Enable pull-through cache mode
+      REGISTRY_PROXY_REMOTEURL: https://registry-1.docker.io
+      # Storage configuration
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /var/lib/registry
+      # Delete enabled for cache cleanup
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - registry-data:/var/lib/registry
+    networks:
+      - proxy-network
+
+  # ChartMuseum for Helm Charts
+  chartmuseum:
+    image: chartmuseum/chartmuseum:latest
+    container_name: chartmuseum
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Storage backend
+      STORAGE: local
+      STORAGE_LOCAL_ROOTDIR: /charts
+      # API settings
+      PORT: 8080
+      DEBUG: "true"
+      LOG_JSON: "true"
+      # Enable chart URL generation
+      CHART_URL: http://localhost:8080
+      # Disable API authentication (enable if needed)
+      DISABLE_API: "false"
+      # Allow chart overwrite
+      ALLOW_OVERWRITE: "true"
+    volumes:
+      - chartmuseum-data:/charts
+    networks:
+      - proxy-network
+
+volumes:
+  registry-data:
+    driver: local
+  chartmuseum-data:
+    driver: local
+
+networks:
+  proxy-network:
+    driver: bridge
+
+# Usage Instructions:
+#
+# 1. Start the services:
+#    docker-compose up -d
+#
+# 2. Check status:
+#    docker-compose ps
+#    docker-compose logs -f
+#
+# 3. Test Docker Registry (pull-through cache):
+#    docker pull localhost:5000/library/nginx:1.27-alpine
+#    # This will pull from Docker Hub and cache locally
+#
+# 4. Test ChartMuseum:
+#    curl http://localhost:8080/health
+#    # Should return: {"healthy":true}
+#
+# 5. Add Helm charts to ChartMuseum:
+#    # Download chart from upstream
+#    helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+#    helm repo update
+#    helm pull ingress-nginx/ingress-nginx --version 4.11.0
+#
+#    # Upload to ChartMuseum
+#    curl --data-binary "@ingress-nginx-4.11.0.tgz" http://localhost:8080/api/charts
+#
+#    # Verify
+#    curl http://localhost:8080/api/charts
+#
+# 6. Configure K3s to use the registry:
+#    sudo REGISTRY_HOST=<your-host-ip> ./setup-registry-mirrors.sh
+#
+# 7. Configure FluxCD to use ChartMuseum:
+#    Update infrastructure/sources/helm-repos.yaml with:
+#    url: http://<your-host-ip>:8080
+#
+# Notes:
+# - Replace localhost with your host IP for K3s cluster access
+# - For production, consider adding authentication and TLS
+# - ChartMuseum requires manual chart uploads (not automatic proxying)
+# - For automatic chart proxying, consider using Harbor or Artifactory instead

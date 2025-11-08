@@ -1,0 +1,43 @@
+# K3s Registry Mirrors Configuration Template
+#
+# This file should be copied to /etc/rancher/k3s/registries.yaml on each K3s node
+# After copying, restart K3s: sudo systemctl restart k3s
+#
+# For automated setup, use: sudo ./setup-registry-mirrors.sh
+
+mirrors:
+  # Docker Hub (docker.io)
+  docker.io:
+    endpoint:
+      - "http://REGISTRY_HOST:REGISTRY_PORT"
+
+  # GitHub Container Registry
+  ghcr.io:
+    endpoint:
+      - "http://REGISTRY_HOST:REGISTRY_PORT"
+
+  # Kubernetes Container Registry
+  registry.k8s.io:
+    endpoint:
+      - "http://REGISTRY_HOST:REGISTRY_PORT"
+
+  # Quay.io Container Registry
+  quay.io:
+    endpoint:
+      - "http://REGISTRY_HOST:REGISTRY_PORT"
+
+# Optional: Authentication configuration for private registries
+# Uncomment and configure if your Docker Registry requires authentication
+#
+# configs:
+#   "REGISTRY_HOST:REGISTRY_PORT":
+#     auth:
+#       username: admin
+#       password: password
+#     tls:
+#       insecure_skip_verify: false  # Set to true for self-signed certificates
+
+# Note: Replace REGISTRY_HOST and REGISTRY_PORT with your actual values
+# Example:
+#   REGISTRY_HOST: 192.168.1.50
+#   REGISTRY_PORT: 5000

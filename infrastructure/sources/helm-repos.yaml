@@ -6,7 +6,10 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
-  url: https://kubernetes.github.io/ingress-nginx
+  # Original upstream URL:
+  # url: https://kubernetes.github.io/ingress-nginx
+  # Local ChartMuseum URL (update localhost with your IP/hostname):
+  url: http://localhost:8080
 ---
 apiVersion: source.toolkit.fluxcd.io/v1beta2
 kind: HelmRepository
@@ -15,4 +18,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
-  url: https://charts.jetstack.io
+  # Original upstream URL:
+  # url: https://charts.jetstack.io
+  # Local ChartMuseum URL (update localhost with your IP/hostname):
+  url: http://localhost:8080
