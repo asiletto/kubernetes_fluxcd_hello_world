@@ -20,7 +20,7 @@ data:
                 justify-content: center;
                 align-items: center;
                 min-height: 100vh;
-                background-color: #2563eb;
+                background-color: #50C878;
                 font-family: Arial, sans-serif;
             }
             .container {
@@ -38,7 +38,7 @@ data:
     </head>
     <body>
         <div class="container">
-            <h1>Blue Background</h1>
+            <h1>Green Background</h1>
             <p>test-nginx-another.300510300.xyz</p>
         </div>
     </body>
